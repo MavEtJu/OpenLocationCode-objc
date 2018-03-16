@@ -12,12 +12,17 @@
 
 int runValidityTest(void);
 void testheader(char *s);
-void testshow(BOOL retval, char *expected);
+void testbool(BOOL retval, char *expected);
 void testend(void);
 
 int main(int argc, const char *argv[])
 {
     OLCConvertor *olc = [[OLCConvertor alloc] init];
+    {
+    OLCArea *coord = [olc decode:@"8FWC2300+G6"];
+    NSLog(@"Center is %.9f, %.9f ", coord.latitudeCenter, coord.longitudeCenter);
+    }
+//    return 0;
 
     // Encode a location with default code length.
     NSString *code = [olc encodeLatitude:37.421908
@@ -54,7 +59,6 @@ int main(int argc, const char *argv[])
 int runValidityTest(void)
 {
     FILE *fin;
-    NSLog(@"%s", getcwd(NULL, 10));
     if ((fin = fopen("validityTests.csv", "r")) == NULL)
         return 1;
 
@@ -85,11 +89,11 @@ int runValidityTest(void)
         NSString *code = [NSString stringWithCString:ccode encoding:NSASCIIStringEncoding];
         testheader(ccode);
         retval = [olc isValid:code];
-        testshow(retval, isValid);
+        testbool(retval, isValid);
         retval = [olc isShort:code];
-        testshow(retval, isShort);
+        testbool(retval, isShort);
         retval = [olc isFull:code];
-        testshow(retval, isFull);
+        testbool(retval, isFull);
         testend();
     }
 
@@ -98,16 +102,16 @@ int runValidityTest(void)
 }
 
 
-void testshow(BOOL retval, char *expected)
+void testbool(BOOL retval, char *expected)
 {
     if (retval == NO && strcmp(expected, "false") == 0)
         printf(".");
     else if (retval == YES && strcmp(expected, "true") == 0)
         printf(".");
     else if (retval == NO && strcmp(expected, "true") == 0)
-        printf("t");
+        printf("(got false, expected true)");
     else if (retval == YES && strcmp(expected, "false") == 0)
-        printf("f");
+        printf("(got true, expected false)");
     else
         printf("?");
 }
