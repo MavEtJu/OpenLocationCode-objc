@@ -46,4 +46,8 @@
 - (NSString *)shortenCode:(NSString *)code latitude:(CLLocationDegrees)lat longitude:(CLLocationDegrees)lon;
 - (NSString *)recoverNearestWithShortcode:(NSString *)code referenceLatitude:(CLLocationDegrees)lat referenceLongitude:(CLLocationDegrees)lon;
 
+- (BOOL)isShort:(NSString *)code;
+- (BOOL)isFull:(NSString *)code;
+- (BOOL)isValid:(NSString *)code;
+
 @end

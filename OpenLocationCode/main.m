@@ -10,9 +10,13 @@
 
 #import "OLCConvertor.h"
 
+int runValidityTest(void);
+void testheader(char *s);
+void testshow(BOOL retval, char *expected);
+void testend(void);
+
 int main(int argc, const char *argv[])
 {
-
     OLCConvertor *olc = [[OLCConvertor alloc] init];
 
     // Encode a location with default code length.
@@ -40,7 +44,82 @@ int main(int argc, const char *argv[])
     NSString *recoveredCode = [olc recoverNearestWithShortcode:@"CWC8+Q48"
                                              referenceLatitude:37.4
                                             referenceLongitude:-122.0];
-    NSLog(@"Recovered Full Code: %@ (expected 849VCWC8+Q48)", recoveredCode);
+    NSLog(@"Recovered Full Code: %@ (exShortpected 849VCWC8+Q48)", recoveredCode);
+
+    runValidityTest();
 
     return 0;
+}
+
+int runValidityTest(void)
+{
+    FILE *fin;
+    NSLog(@"%s", getcwd(NULL, 10));
+    if ((fin = fopen("validityTests.csv", "r")) == NULL)
+        return 1;
+
+    OLCConvertor *olc = [[OLCConvertor alloc] init];
+
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
+    while ((linelen = getline(&line, &linecap, fin)) > 0) {
+        if (line[0] == '#')
+            continue;
+        // code,isValid,isShort,isFull
+
+        if (line[strlen(line) - 1] == '\n')
+            line[strlen(line) - 1] = '\0';
+
+        char *ccode, *isValid, *isShort, *isFull;
+        BOOL retval;
+        if ((ccode = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((isValid = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((isShort = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((isFull = strsep(&line, ",")) == NULL)
+            return 2;
+
+        NSString *code = [NSString stringWithCString:ccode encoding:NSASCIIStringEncoding];
+        testheader(ccode);
+        retval = [olc isValid:code];
+        testshow(retval, isValid);
+        retval = [olc isShort:code];
+        testshow(retval, isShort);
+        retval = [olc isFull:code];
+        testshow(retval, isFull);
+        testend();
+    }
+
+    fclose(fin);
+    return 0;
+}
+
+
+void testshow(BOOL retval, char *expected)
+{
+    if (retval == NO && strcmp(expected, "false") == 0)
+        printf(".");
+    else if (retval == YES && strcmp(expected, "true") == 0)
+        printf(".");
+    else if (retval == NO && strcmp(expected, "true") == 0)
+        printf("t");
+    else if (retval == YES && strcmp(expected, "false") == 0)
+        printf("f");
+    else
+        printf("?");
+}
+
+void testheader(char *s)
+{
+    printf("%s:", s);
+    for (unsigned long i = strlen(s); i < 20; i++)
+        printf(" ");
+}
+
+void testend(void)
+{
+    printf("\n");
 }
