@@ -192,6 +192,10 @@
     NSRange sep = [code rangeOfString:self.kSeparator];
     if (sep.location == NSNotFound)
         return NO;
+    // Only one seperator is required.
+    NSRange rsep = [code rangeOfString:self.kSeparator options:NSBackwardsSearch];
+    if (rsep.location != sep.location)
+        return NO;
 
     // Is it the only character?
     if ([code length] == 1)
@@ -211,13 +215,13 @@
 
         // There can only be one group and it must have even length.
         NSRange rpad = [code rangeOfString:self.kPaddingCharacterString options:NSBackwardsSearch];
-        NSString *pads = [code substringWithRange:NSMakeRange(pad.location, rpad.location - pad.location)];
-        NSInteger padCharCount = [[pads stringByReplacingOccurrencesOfString:self.kPaddingCharacter withString:@""] length];
+        NSString *pads = [code substringWithRange:NSMakeRange(pad.location, rpad.location - pad.location + 1)];
+        NSInteger padCharCount = [pads length] - [[pads stringByReplacingOccurrencesOfString:self.kPaddingCharacter withString:@""] length];
         if ([pads length] % 2 == 1 || padCharCount != [pads length])
             return NO;
         // Padded codes must end with a separator, make sure it does.
         NSRange padrange = [code rangeOfString:self.kSeparatorString options:NSBackwardsSearch];
-        if (padrange.location == NSNotFound)
+        if (pad.location + padCharCount + 1 != [code length])
             return NO;
     }
     // If there are characters after the separator, make sure there isn't just
@@ -541,7 +545,7 @@
     code = [[code componentsSeparatedByCharactersInSet:[self.kCodeAlphabetCharset invertedSet]] componentsJoinedByString:@""];
 
     // Decode the lat/lng pair component.
-    OLCArea *codeArea = [self decodePairs:[code substringToIndex:self.kPairCodeLength]];
+    OLCArea *codeArea = [self decodePairs:[code substringToIndex:MIN(self.kPairCodeLength, [code length])]];
     if ([code length] <= self.kPairCodeLength)
         return codeArea;
 
