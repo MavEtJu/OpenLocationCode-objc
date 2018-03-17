@@ -220,7 +220,6 @@
         if ([pads length] % 2 == 1 || padCharCount != [pads length])
             return NO;
         // Padded codes must end with a separator, make sure it does.
-        NSRange padrange = [code rangeOfString:self.kSeparatorString options:NSBackwardsSearch];
         if (pad.location + padCharCount + 1 != [code length])
             return NO;
     }
