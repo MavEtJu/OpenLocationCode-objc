@@ -16,6 +16,7 @@ int runEncodingTest(void);
 void testheader(char *s);
 void testbool(BOOL retval, char *expected);
 void teststring(NSString *s1, char *s2);
+void testarea(OLCArea *code, char *latlo, char *lonlo, char *lathi, char *lonhi);
 void teststring_shorterokay(NSString *s1, char *s2);
 void testdot(void);
 void testend(void);
@@ -23,11 +24,6 @@ void testend(void);
 int main(int argc, const char *argv[])
 {
     OLCConvertor *olc = [[OLCConvertor alloc] init];
-    {
-        NSString *coord = [olc shortenCode:@"9C3W9QCJ+2VX" latitude:51.3701125 longitude:-1.217765625];
-        NSLog(@"9C3W9QCJ+2VX shorten is %@, expected +2VX", coord);
-    }
-//    return 0;
 
     // Encode a location with default code length.
     NSString *code = [olc encodeLatitude:37.421908
@@ -56,7 +52,7 @@ int main(int argc, const char *argv[])
                                             referenceLongitude:-122.0];
     NSLog(@"Recovered Full Code: %@ (expected 849VCWC8+Q48)", recoveredCode);
 
-//    runValidityTest();
+    runValidityTest();
     runShortCodeTest();
     runEncodingTest();
 
@@ -65,6 +61,63 @@ int main(int argc, const char *argv[])
 
 int runEncodingTest(void)
 {
+    FILE *fin;
+    if ((fin = fopen("encodingTests.csv", "r")) == NULL)
+        return 1;
+
+    NSLog(@"runEncodingTest");
+    OLCConvertor *olc = [[OLCConvertor alloc] init];
+
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
+    while ((linelen = getline(&line, &linecap, fin)) > 0) {
+        if (line[0] == '#')
+            continue;
+
+        if (line[strlen(line) - 1] == '\n')
+            line[strlen(line) - 1] = '\0';
+
+        // # code,lat,lng,latLo,lngLo,latHi,lngHi
+
+        char *ccode, *clat, *clon, *clatlo, *clonlo, *clathi, *clonhi;
+        if ((ccode = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clat = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clon = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clatlo = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clonlo = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clathi = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clonhi = strsep(&line, ",")) == NULL)
+            return 2;
+
+        CLLocationDegrees lat = atof(clat);
+        CLLocationDegrees lon = atof(clon);
+
+        testheader(ccode);
+
+        NSString *code = [NSString stringWithCString:ccode encoding:NSASCIIStringEncoding];
+
+        OLCArea *area = [olc decode:code];
+        testarea(area, clatlo, clonlo, clathi, clonhi);
+
+        NSString *s;
+        if ([code containsString:@"0"] == YES)
+            s = [code stringByReplacingOccurrencesOfString:@"0*\\+$" withString:@"" options:NSRegularExpressionSearch range:NSMakeRange(0, [code length])];
+        else
+            s = [code substringFromIndex:1];
+        NSString *newcode = [olc encodeLatitude:lat longitude:lon codeLength:[s length]];
+        teststring(newcode, ccode);
+
+        testend();
+    }
+
+    fclose(fin);
     return 0;
 }
 
@@ -74,6 +127,7 @@ int runShortCodeTest(void)
     if ((fin = fopen("shortCodeTests.csv", "r")) == NULL)
         return 1;
 
+    NSLog(@"runShortCodeTest");
     OLCConvertor *olc = [[OLCConvertor alloc] init];
 
     char *line = NULL;
@@ -133,6 +187,7 @@ int runValidityTest(void)
     if ((fin = fopen("validityTests.csv", "r")) == NULL)
         return 1;
 
+    NSLog(@"validityTests");
     OLCConvertor *olc = [[OLCConvertor alloc] init];
 
     char *line = NULL;
@@ -175,6 +230,30 @@ int runValidityTest(void)
 void testdot(void)
 {
     printf("_");
+}
+
+void testarea(OLCArea *area, char *elatlo, char *elonlo, char *elathi, char *elonhi)
+{
+    char *clatlo, *clonlo, *clathi, *clonhi;
+    int i;
+#define A(s, e, c) \
+    if (strchr(e, '.') == NULL) \
+        i = 0; \
+    else \
+        i = (int)(strlen(e) - (strchr(e, '.') - e)) - 1; \
+    asprintf(&s, "%.*f", i, c); \
+
+    A(clatlo, elatlo, area.latitudeLo);
+    A(clonlo, elonlo, area.longitudeLo);
+    A(clathi, elathi, area.latitudeHi);
+    A(clonhi, elonhi, area.longitudeHi);
+
+    if (strcmp(clatlo, elatlo) == 0 && strcmp(clonlo, elonlo) == 0 &&
+        strcmp(clathi, elathi) == 0 && strcmp(clonhi, elonhi) == 0) {
+        printf(".");
+    } else {
+        printf("!");
+    }
 }
 
 
