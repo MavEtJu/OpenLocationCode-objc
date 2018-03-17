@@ -252,7 +252,9 @@ void testarea(OLCArea *area, char *elatlo, char *elonlo, char *elathi, char *elo
         strcmp(clathi, elathi) == 0 && strcmp(clonhi, elonhi) == 0) {
         printf(".");
     } else {
-        printf("!");
+        printf("(got (%s,%s)-(%s,%s), expected (%s,%s)-(%s,%s))",
+            clatlo, clonlo, clathi, clonhi,
+            elatlo, elonlo, elathi, elonhi);
     }
 }
 
