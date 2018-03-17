@@ -11,16 +11,21 @@
 #import "OLCConvertor.h"
 
 int runValidityTest(void);
+int runShortCodeTest(void);
+int runEncodingTest(void);
 void testheader(char *s);
 void testbool(BOOL retval, char *expected);
+void teststring(NSString *s1, char *s2);
+void teststring_shorterokay(NSString *s1, char *s2);
+void testdot(void);
 void testend(void);
 
 int main(int argc, const char *argv[])
 {
     OLCConvertor *olc = [[OLCConvertor alloc] init];
     {
-    OLCArea *coord = [olc decode:@"8FWC2300+G6"];
-    NSLog(@"Center is %.9f, %.9f ", coord.latitudeCenter, coord.longitudeCenter);
+        NSString *coord = [olc shortenCode:@"9C3W9QCJ+2VX" latitude:51.3701125 longitude:-1.217765625];
+        NSLog(@"9C3W9QCJ+2VX shorten is %@, expected +2VX", coord);
     }
 //    return 0;
 
@@ -49,10 +54,76 @@ int main(int argc, const char *argv[])
     NSString *recoveredCode = [olc recoverNearestWithShortcode:@"CWC8+Q48"
                                              referenceLatitude:37.4
                                             referenceLongitude:-122.0];
-    NSLog(@"Recovered Full Code: %@ (exShortpected 849VCWC8+Q48)", recoveredCode);
+    NSLog(@"Recovered Full Code: %@ (expected 849VCWC8+Q48)", recoveredCode);
 
-    runValidityTest();
+//    runValidityTest();
+    runShortCodeTest();
+    runEncodingTest();
 
+    return 0;
+}
+
+int runEncodingTest(void)
+{
+    return 0;
+}
+
+int runShortCodeTest(void)
+{
+    FILE *fin;
+    if ((fin = fopen("shortCodeTests.csv", "r")) == NULL)
+        return 1;
+
+    OLCConvertor *olc = [[OLCConvertor alloc] init];
+
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
+    while ((linelen = getline(&line, &linecap, fin)) > 0) {
+        if (line[0] == '#')
+            continue;
+
+        if (line[strlen(line) - 1] == '\n')
+            line[strlen(line) - 1] = '\0';
+
+        // # full code,lat,lng,shortcode,test_type
+        // # test_type is R for recovery only, S for shorten only, or B for both.
+
+        char *cfullcode, *clat, *clon, *cshortcode, *ctesttype;
+        if ((cfullcode = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clat = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((clon = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((cshortcode = strsep(&line, ",")) == NULL)
+            return 2;
+        if ((ctesttype = strsep(&line, ",")) == NULL)
+            return 2;
+
+        CLLocationDegrees lat = atof(clat);
+        CLLocationDegrees lon = atof(clon);
+
+        testheader(cfullcode);
+
+        if (ctesttype[0] == 'B' || ctesttype[0] == 'S') {
+            NSString *fullcode = [NSString stringWithCString:cfullcode encoding:NSASCIIStringEncoding];
+            NSString *shortcode = [olc shortenCode:fullcode latitude:lat longitude:lon];
+            teststring_shorterokay(shortcode, cshortcode);
+        } else
+            testdot();
+
+        if (ctesttype[0] == 'B' || ctesttype[0] == 'R') {
+            NSString *shortcode = [NSString stringWithCString:cshortcode encoding:NSASCIIStringEncoding];
+            NSString *fullcode = [olc recoverNearestWithShortcode:shortcode referenceLatitude:lat referenceLongitude:lon];
+            teststring(fullcode, cfullcode);
+        } else
+            testdot();
+
+        testend();
+    }
+
+    fclose(fin);
     return 0;
 }
 
@@ -101,6 +172,31 @@ int runValidityTest(void)
     return 0;
 }
 
+void testdot(void)
+{
+    printf("_");
+}
+
+
+void teststring(NSString *s1, char *expected)
+{
+    if ([s1 isEqualToString:[NSString stringWithCString:expected encoding:NSASCIIStringEncoding]] == YES)
+        printf(".");
+    else
+        printf("(got '%s', expected '%s')", [s1 cStringUsingEncoding:NSASCIIStringEncoding], expected);
+}
+
+void teststring_shorterokay(NSString *s1, char *expected)
+{
+    NSString *e = [NSString stringWithCString:expected encoding:NSASCIIStringEncoding];
+    if ([s1 isEqualToString:e] == YES)
+        printf(".");
+    else if ([e isEqualToString:[s1 substringFromIndex:[s1 length] - [e length]]] == YES)
+        printf("<");
+    else {
+        printf("(got '%s', expected '%s')", [s1 cStringUsingEncoding:NSASCIIStringEncoding], expected);
+    }
+}
 
 void testbool(BOOL retval, char *expected)
 {
